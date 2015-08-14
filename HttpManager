@@ -1,0 +1,69 @@
+#import <Foundation/Foundation.h>
+#import "XMLReader.h"
+
+@interface HttpManager : NSObject<NSURLSessionDelegate,NSXMLParserDelegate>
+
++(HttpManager*) sharedManager;
+
+-(void) requestWithParameter:(NSDictionary *) param handler:(void (^)(NSDictionary *result, NSError *error)) completition;
+
+@property (nonatomic, strong) XMLReader *xmlReader;
+
+@end
+
+
+#import "HttpManager.h"
+
+//#define URL_NAME @"http://androidexample.com/media/webservice/JsonReturn.php"
+#define URL_NAME @"http://api.androidhive.info/pizza/?format=xml"
+static HttpManager *sharedManager = nil;
+
+@implementation HttpManager
+
++(HttpManager*) sharedManager{
+    if (sharedManager == nil) {
+        sharedManager = [[HttpManager alloc] init];
+    }
+    return sharedManager;
+}
+
+-(void) requestWithParameter:(NSDictionary *) param handler:(void (^)(NSDictionary *result, NSError *error)) completition{
+    
+    NSError *error;
+    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration delegate:self delegateQueue:nil];
+    
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:URL_NAME]
+                                                           cachePolicy:NSURLRequestUseProtocolCachePolicy
+                                                       timeoutInterval:60.0];
+//    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+//    [request addValue:@"application/json" forHTTPHeaderField:@"Accept"];
+    
+    [request setHTTPMethod:@"POST"];
+
+    if (param !=nil) {
+        NSData *postData = [NSJSONSerialization dataWithJSONObject:param options:0 error:&error];
+        [request setHTTPBody:postData];
+    }
+    
+    [[session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error != nil) {
+            return ;
+        }
+        // Parse the JSON into a dictionary
+//        NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+//        NSLog(@"%@",[dict description]);
+
+        // Parse the XML into a dictionary
+        NSString *testXMLString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+
+        NSDictionary *dict = [XMLReader dictionaryForXMLString:testXMLString];
+        NSLog(@"%@", dict);
+        
+        if(completition){
+            completition(dict,nil);
+        }
+    }] resume];
+}
+
+@end
